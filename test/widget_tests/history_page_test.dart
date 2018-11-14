@@ -12,10 +12,10 @@ void main() {
   WeightEntry entry = new WeightEntry(new DateTime.now(), 70.0, null);
   ReduxState defaultState = new ReduxState(unit: 'kg', entries: [entry, entry]);
 
-  pumpSettingWidget(Store store, WidgetTester tester) async {
+  pumpSettingWidget(Store<ReduxState> store, WidgetTester tester) async {
     await tester.pumpWidget(new StatefulBuilder(
         builder: (BuildContext context, StateSetter setState) {
-      return new StoreProvider(
+          return new StoreProvider<ReduxState>(
         store: store,
         child: new MaterialApp(home: new Scaffold(body: new HistoryPage())),
       );
@@ -25,28 +25,29 @@ void main() {
   testWidgets('HistoryPage has text if there are no entries',
       (WidgetTester tester) async {
     await pumpSettingWidget(
-        new Store(reduce, initialState: defaultState.copyWith(entries: [])),
+        new Store<ReduxState>(
+            reduce, initialState: defaultState.copyWith(entries: [])),
         tester);
     expect(find.text('Add your weight to see history'), findsOneWidget);
   });
 
   testWidgets('HistoryPage has ListView', (WidgetTester tester) async {
     await pumpSettingWidget(
-        new Store(reduce, initialState: defaultState), tester);
+        new Store<ReduxState>(reduce, initialState: defaultState), tester);
     expect(find.byType(ListView), findsOneWidget);
   });
 
   testWidgets('HistoryPage has 2 items for 2 entries',
       (WidgetTester tester) async {
     await pumpSettingWidget(
-        new Store(reduce, initialState: defaultState), tester);
+        new Store<ReduxState>(reduce, initialState: defaultState), tester);
     expect(find.byType(WeightListItem), findsNWidgets(2));
   });
 
   testWidgets('HistoryPage shows snackbar if entry was removed',
       (WidgetTester tester) async {
     await pumpSettingWidget(
-        new Store(
+        new Store<ReduxState>(
           reduce,
           initialState: defaultState.copyWith(
             removedEntryState: defaultState.removedEntryState
@@ -61,7 +62,7 @@ void main() {
   testWidgets('HistoryPage shows snackbar with proper text',
       (WidgetTester tester) async {
     await pumpSettingWidget(
-        new Store(
+        new Store<ReduxState>(
           reduce,
           initialState: defaultState.copyWith(
             removedEntryState: defaultState.removedEntryState
@@ -76,7 +77,7 @@ void main() {
   testWidgets('HistoryPage shows snackbar with proper action',
       (WidgetTester tester) async {
     await pumpSettingWidget(
-        new Store(
+        new Store<ReduxState>(
           reduce,
           initialState: defaultState.copyWith(
             removedEntryState: defaultState.removedEntryState

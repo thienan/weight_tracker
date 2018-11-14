@@ -4,18 +4,20 @@ import 'package:weight_tracker/model/weight_entry.dart';
 
 class UserLoadedAction {
   final FirebaseUser firebaseUser;
+  final List<WeightEntry> cachedEntries;
 
-  UserLoadedAction(this.firebaseUser);
+  UserLoadedAction(this.firebaseUser, {this.cachedEntries = const []});
 }
 
 class AddDatabaseReferenceAction {
   final DatabaseReference databaseReference;
+  final List<WeightEntry> cachedEntries;
 
-  AddDatabaseReferenceAction(this.databaseReference);
+  AddDatabaseReferenceAction(this.databaseReference,
+      {this.cachedEntries = const []});
 }
 
-class GetSavedWeightNote {
-}
+class GetSavedWeightNote {}
 
 class AddWeightFromNotes {
   final double weight;
@@ -23,8 +25,7 @@ class AddWeightFromNotes {
   AddWeightFromNotes(this.weight);
 }
 
-class ConsumeWeightFromNotes {
-}
+class ConsumeWeightFromNotes {}
 
 class AddEntryAction {
   final WeightEntry weightEntry;
@@ -88,8 +89,7 @@ class UpdateActiveWeightEntry {
   UpdateActiveWeightEntry(this.weightEntry);
 }
 
-class OpenAddEntryDialog {
-}
+class OpenAddEntryDialog {}
 
 class OpenEditEntryDialog {
   final WeightEntry weightEntry;
@@ -97,12 +97,18 @@ class OpenEditEntryDialog {
   OpenEditEntryDialog(this.weightEntry);
 }
 
-class SnapShotDaysToShow {}
+class ChangeProgressChartStartDate {
+  final DateTime dateTime;
 
-class EndGestureOnProgressChart {}
+  ChangeProgressChartStartDate(this.dateTime);
+}
 
-class ChangeDaysToShowOnChart {
-  final int daysToShow;
+class LoginWithGoogle {
+  final List<WeightEntry> cachedEntries;
 
-  ChangeDaysToShowOnChart(this.daysToShow);
+  LoginWithGoogle({this.cachedEntries = const []});
+}
+
+class LogoutAction {
+  LogoutAction();
 }

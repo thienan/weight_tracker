@@ -8,10 +8,11 @@ ReduxState reduce(ReduxState state, action) {
   String unit = _reduceUnit(state, action);
   RemovedEntryState removedEntryState = _reduceRemovedEntryState(state, action);
   WeightEntryDialogReduxState weightEntryDialogState =
-  _reduceWeightEntryDialogState(state, action);
+      _reduceWeightEntryDialogState(state, action);
   FirebaseState firebaseState = _reduceFirebaseState(state, action);
   MainPageReduxState mainPageState = _reduceMainPageState(state, action);
-  ProgressChartState progressChartState = _reduceChartState(state, action);
+  DateTime progressChartStartDate =
+      _reduceProgressChartStartDate(state, action);
   double weightFromNotes = _reduceWeightFromNotes(state, action);
 
   return new ReduxState(
@@ -21,7 +22,7 @@ ReduxState reduce(ReduxState state, action) {
     weightEntryDialogState: weightEntryDialogState,
     firebaseState: firebaseState,
     mainPageState: mainPageState,
-    progressChartState: progressChartState,
+    progressChartStartDate: progressChartStartDate,
     weightFromNotes: weightFromNotes,
   );
 }
@@ -78,8 +79,8 @@ RemovedEntryState _reduceRemovedEntryState(ReduxState reduxState, action) {
   return newState;
 }
 
-WeightEntryDialogReduxState _reduceWeightEntryDialogState(ReduxState reduxState,
-    action) {
+WeightEntryDialogReduxState _reduceWeightEntryDialogState(
+    ReduxState reduxState, action) {
   WeightEntryDialogReduxState newState = reduxState.weightEntryDialogState;
   if (action is UpdateActiveWeightEntry) {
     newState = newState.copyWith(
@@ -107,7 +108,7 @@ List<WeightEntry> _reduceEntries(ReduxState state, action) {
   } else if (action is OnChangedAction) {
     WeightEntry newValue = new WeightEntry.fromSnapshot(action.event.snapshot);
     WeightEntry oldValue =
-    entries.singleWhere((entry) => entry.key == newValue.key);
+        entries.singleWhere((entry) => entry.key == newValue.key);
     entries
       ..[entries.indexOf(oldValue)] = newValue
       ..sort((we1, we2) => we2.dateTime.compareTo(we1.dateTime));
@@ -117,25 +118,16 @@ List<WeightEntry> _reduceEntries(ReduxState state, action) {
     entries
       ..remove(removedEntry)
       ..sort((we1, we2) => we2.dateTime.compareTo(we1.dateTime));
+  } else if (action is UserLoadedAction) {
+    entries = [];
   }
   return entries;
 }
 
-/// I don't check if values have sense (e.g. if they are greater than 0) - let it be ;)
-ProgressChartState _reduceChartState(ReduxState state, action) {
-  ProgressChartState newState = state.progressChartState;
-  if (action is ChangeDaysToShowOnChart) {
-    if (newState.lastFinishedDateTime == null ||
-        newState.lastFinishedDateTime.isBefore(
-            new DateTime.now().subtract(const Duration(milliseconds: 10)))) {
-      newState = newState.copyWith(daysToShow: action.daysToShow);
-    }
-  } else if (action is SnapShotDaysToShow) {
-    newState = newState.copyWith(previousDaysToShow: newState.daysToShow);
-  } else if (action is EndGestureOnProgressChart) {
-    newState = newState.copyWith(
-        previousDaysToShow: newState.daysToShow,
-        lastFinishedDateTime: new DateTime.now());
+DateTime _reduceProgressChartStartDate(ReduxState state, action) {
+  DateTime date = state.progressChartStartDate;
+  if (action is ChangeProgressChartStartDate) {
+    date = action.dateTime;
   }
-  return newState;
+  return date;
 }

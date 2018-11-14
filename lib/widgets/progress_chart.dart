@@ -9,68 +9,101 @@ import 'package:weight_tracker/logic/actions.dart';
 import 'package:weight_tracker/logic/constants.dart';
 import 'package:weight_tracker/logic/redux_state.dart';
 import 'package:weight_tracker/model/weight_entry.dart';
+import 'package:weight_tracker/widgets/progress_chart_dropdown.dart';
 import 'package:weight_tracker/widgets/progress_chart_utils.dart' as utils;
+import 'package:weight_tracker/widgets/progress_chart_utils.dart';
 
 class ProgressChartViewModel {
-  final List<WeightEntry> entriesToShow;
-  final int daysToShow;
-  final int previousDaysToShow;
-  final Function(int) changeDaysToShow;
-  final Function() snapShotDaysToShow;
-  final Function() endGesture;
+  final List<WeightEntry> allEntries;
   final String unit;
 
   ProgressChartViewModel({
-    this.entriesToShow,
-    this.daysToShow,
-    this.previousDaysToShow,
-    this.changeDaysToShow,
-    this.snapShotDaysToShow,
-    this.endGesture,
+    this.allEntries,
     this.unit,
   });
 }
 
-class ProgressChart extends StatelessWidget {
+class ProgressChart extends StatefulWidget {
+  @override
+  ProgressChartState createState() {
+    return new ProgressChartState();
+  }
+}
+
+class ProgressChartState extends State<ProgressChart> {
+  DateTime startDate;
+  DateTime snapShotStartDate;
+
   @override
   Widget build(BuildContext context) {
     return new StoreConnector<ReduxState, ProgressChartViewModel>(
       converter: (store) {
-        int daysToShow = store.state.progressChartState.daysToShow;
         return new ProgressChartViewModel(
-          entriesToShow: utils.prepareEntryList(
-              store.state.entries, new DateTime.now(), daysToShow),
-          daysToShow: daysToShow,
-          previousDaysToShow: store.state.progressChartState.previousDaysToShow,
-          snapShotDaysToShow: () => store.dispatch(new SnapShotDaysToShow()),
-          changeDaysToShow: (days) =>
-              store.dispatch(new ChangeDaysToShowOnChart(days)),
-          endGesture: () => store.dispatch(new EndGestureOnProgressChart()),
+          allEntries: store.state.entries,
           unit: store.state.unit,
         );
       },
-      builder: (BuildContext context, ProgressChartViewModel viewModel) {
-        return new GestureDetector(
-          onScaleStart: (details) => viewModel.snapShotDaysToShow(),
-          onScaleUpdate: (ScaleUpdateDetails scaleDetails) {
-            int newNumberOfDays =
-            (viewModel.previousDaysToShow / scaleDetails.scale).round();
-            if (newNumberOfDays >= 8) {
-              viewModel.changeDaysToShow(newNumberOfDays);
-            }
-          },
-          onScaleEnd: (details) => viewModel.endGesture(),
-          child: new CustomPaint(
-            painter: new ChartPainter(
-              utils.prepareEntryList(viewModel.entriesToShow,
-                  new DateTime.now(), viewModel.daysToShow),
-              viewModel.daysToShow,
-              viewModel.unit == "lbs",
-            ),
-          ),
-        );
+      onInit: (store) {
+        this.startDate = store.state.progressChartStartDate ??
+            DateTime.now().subtract(Duration(days: 30));
       },
+      onDispose: (store) {
+        store.dispatch(ChangeProgressChartStartDate(this.startDate));
+      },
+      builder: _buildChartWithDropdown,
     );
+  }
+
+  Widget _buildChart(ProgressChartViewModel viewModel) {
+    return GestureDetector(
+      onScaleStart: _onScaleStart,
+      onScaleUpdate: _onScaleUpdate,
+      child: CustomPaint(
+        painter: ChartPainter(
+          utils.prepareEntryList(viewModel.allEntries, startDate),
+          daysToDraw(startDate),
+          viewModel.unit == "lbs",
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartWithDropdown(
+      BuildContext context, ProgressChartViewModel viewModel) {
+    return new Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.max,
+      children: <Widget>[
+        new Expanded(child: _buildChart(viewModel)),
+        ProgressChartDropdown(
+          daysToShow: daysToDraw(startDate),
+          onStartSelected: (date) => setState(() => startDate = date),
+        ),
+      ],
+    );
+  }
+
+  void _onScaleStart(ScaleStartDetails details) {
+    setState(() {
+      this.snapShotStartDate = this.startDate;
+    });
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    int previousNumberOfDays = daysToDraw(snapShotStartDate);
+    int newNumberOfDays = (previousNumberOfDays / details.scale).round();
+    if (newNumberOfDays >= 7) {
+      setState(() {
+        startDate =
+            new DateTime.now().subtract(Duration(days: newNumberOfDays - 1));
+      });
+    }
+  }
+
+  int daysToDraw(DateTime date) {
+    DateTime now = copyDateWithoutTime(new DateTime.now());
+    DateTime start = copyDateWithoutTime(date);
+    return now.difference(start).inDays + 1;
   }
 }
 
@@ -112,13 +145,13 @@ class ChartPainter extends CustomPainter {
   bool shouldRepaint(ChartPainter old) => true;
 
   ///draws actual chart
-  void _drawLines(ui.Canvas canvas, int minLineValue, int maxLineValue,
-      bool isLbs) {
+  void _drawLines(
+      ui.Canvas canvas, int minLineValue, int maxLineValue, bool isLbs) {
     final paint = new Paint()
       ..color = Colors.blue[400]
       ..strokeWidth = 3.0;
     DateTime beginningOfChart =
-    utils.getStartDateOfChart(new DateTime.now(), numberOfDays);
+        utils.getStartDateOfChart(new DateTime.now(), numberOfDays);
     for (int i = 0; i < entries.length - 1; i++) {
       Offset startEntryOffset = _getEntryOffset(
           entries[i], beginningOfChart, minLineValue, maxLineValue, isLbs);
@@ -135,10 +168,9 @@ class ChartPainter extends CustomPainter {
   }
 
   /// Draws horizontal lines and labels informing about weight values attached to those lines
-  void _drawHorizontalLinesAndLabels(Canvas canvas, Size size, int minLineValue,
-      int maxLineValue) {
-    final paint = new Paint()
-      ..color = Colors.grey[300];
+  void _drawHorizontalLinesAndLabels(
+      Canvas canvas, Size size, int minLineValue, int maxLineValue) {
+    final paint = new Paint()..color = Colors.grey[300];
     int lineStep = _calculateHorizontalLineStep(maxLineValue, minLineValue);
     double offsetStep = _calculateHorizontalOffsetStep;
     for (int line = 0; line < NUMBER_OF_HORIZONTAL_LINES; line++) {
@@ -148,8 +180,8 @@ class ChartPainter extends CustomPainter {
     }
   }
 
-  void _drawHorizontalLine(ui.Canvas canvas, double yOffset, ui.Size size,
-      ui.Paint paint) {
+  void _drawHorizontalLine(
+      ui.Canvas canvas, double yOffset, ui.Size size, ui.Paint paint) {
     canvas.drawLine(
       new Offset(leftOffsetStart, 5 + yOffset),
       new Offset(size.width, 5 + yOffset),
@@ -160,7 +192,7 @@ class ChartPainter extends CustomPainter {
   void _drawHorizontalLabel(int maxLineValue, int line, int lineStep,
       ui.Canvas canvas, double yOffset) {
     ui.Paragraph paragraph =
-    _buildParagraphForLeftLabel(maxLineValue, line, lineStep);
+        _buildParagraphForLeftLabel(maxLineValue, line, lineStep);
     canvas.drawParagraph(
       paragraph,
       new Offset(0.0, yOffset),
@@ -183,8 +215,8 @@ class ChartPainter extends CustomPainter {
 
   void _drawBottomLabels(Canvas canvas, Size size) {
     for (int daysFromStart = numberOfDays;
-    daysFromStart > 0;
-    daysFromStart = (daysFromStart - (numberOfDays / 4)).round()) {
+        daysFromStart > 0;
+        daysFromStart = (daysFromStart - (numberOfDays / 4)).round()) {
       double offsetXbyDay = drawingWidth / numberOfDays;
       double offsetX = leftOffsetStart + offsetXbyDay * daysFromStart;
       ui.Paragraph paragraph = _buildParagraphForBottomLabel(daysFromStart);
@@ -208,8 +240,8 @@ class ChartPainter extends CustomPainter {
   }
 
   ///Builds text paragraph for label placed on the left side of a chart (weights)
-  ui.Paragraph _buildParagraphForLeftLabel(int maxLineValue, int line,
-      int lineStep) {
+  ui.Paragraph _buildParagraphForLeftLabel(
+      int maxLineValue, int line, int lineStep) {
     ui.ParagraphBuilder builder = new ui.ParagraphBuilder(
       new ui.ParagraphStyle(
         fontSize: 10.0,
@@ -255,10 +287,8 @@ class ChartPainter extends CustomPainter {
   Offset _getEntryOffset(WeightEntry entry, DateTime beginningOfChart,
       int minLineValue, int maxLineValue, bool isLbs) {
     double entryWeightToShow =
-    isLbs ? entry.weight * KG_LBS_RATIO : entry.weight;
-    int daysFromBeginning = entry.dateTime
-        .difference(beginningOfChart)
-        .inDays;
+        isLbs ? entry.weight * KG_LBS_RATIO : entry.weight;
+    int daysFromBeginning = entry.dateTime.difference(beginningOfChart).inDays;
     double relativeXposition = daysFromBeginning / (numberOfDays - 1);
     double xOffset = leftOffsetStart + relativeXposition * drawingWidth;
     double relativeYposition =

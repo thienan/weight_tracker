@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 import 'package:weight_tracker/logic/actions.dart';
@@ -24,7 +25,8 @@ class MainPageViewModel {
 }
 
 class MainPage extends StatefulWidget {
-  MainPage({Key key, this.title}) : super(key: key);
+  MainPage({Key key, this.title, this.analytics}) : super(key: key);
+  final FirebaseAnalytics analytics;
   final String title;
 
   @override
@@ -71,6 +73,7 @@ class MainPageState extends State<MainPage>
               },
               fullscreenDialog: true,
             ));
+            widget.analytics.logEvent(name: 'open_add_dialog');
           },
           unit: store.state.unit,
         );
@@ -109,11 +112,7 @@ class MainPageState extends State<MainPage>
                     ],
                     controller: _tabController,
                   ),
-                  actions: [
-                    new IconButton(
-                        icon: new Icon(Icons.settings),
-                        onPressed: () => _openSettingsPage(context))
-                  ],
+                  actions: _buildMenuActions(context),
                 ),
               ];
             },
@@ -133,6 +132,14 @@ class MainPageState extends State<MainPage>
         );
       },
     );
+  }
+
+  List<Widget> _buildMenuActions(BuildContext context) {
+    return [
+      IconButton(
+          icon: new Icon(Icons.settings),
+          onPressed: () => _openSettingsPage(context)),
+    ];
   }
 
   _scrollToTop() {
